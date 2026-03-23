@@ -10,16 +10,16 @@ DAG-based distributed ledger without full nodes. Cross-validation between nodes 
 [![Status: Research Preview](https://img.shields.io/badge/Status-Research%20Preview-orange.svg)]()
 
 ---
+Full nodes. Archive nodes. Validators holding the entire state. Removing them was considered impossible — without them, transactions can't be verified, double-spends can't be detected, consensus breaks down.
 
+**We removed them. It still works.**
 ## The Universal Assumption of Every Blockchain
 
 Bitcoin, Ethereum, Solana — every blockchain shares one premise:
 
 **Someone, somewhere, must store the entire ledger.**
 
-Full nodes. Archive nodes. Validators holding the entire state. Removing them was considered impossible — without them, transactions can't be verified, double-spends can't be detected, consensus breaks down.
 
-**We removed them. It still works.**
 
 ---
 
