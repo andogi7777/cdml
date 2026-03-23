@@ -121,6 +121,7 @@ func (n *Node) acceptLoop() {
 
 func (n *Node) handleInbound(conn net.Conn) {
 	conn.SetDeadline(time.Now().Add(core.HandshakeTimeout))
+	// 상대 pubkey 수신
 	pkt, err := network.ReadPacket(conn)
 	if err != nil || pkt.Type != core.PacketHandshake {
 		conn.Close()
@@ -131,6 +132,11 @@ func (n *Node) handleInbound(conn net.Conn) {
 		conn.Close()
 		return
 	}
+	// 내 pubkey 응답 (양방향 핸드셰이크)
+	myPayload, _ := json.Marshal(n.kp.Public)
+	replyPkt := &network.Packet{Type: core.PacketHandshake, Payload: myPayload}
+	replyData, _ := replyPkt.Encode()
+	conn.Write(replyData)
 	conn.SetDeadline(time.Time{})
 
 	peer := network.NewPeer(conn, theirPub, conn.RemoteAddr().String(), n.removePeer)
@@ -152,9 +158,22 @@ func (n *Node) connectToSeed(addr string) {
 		data, _ := pkt.Encode()
 		conn.SetDeadline(time.Now().Add(core.HandshakeTimeout))
 		conn.Write(data)
+		// 상대 pubkey 수신 (양방향 핸드셰이크)
+		replyPkt, rerr := network.ReadPacket(conn)
+		if rerr != nil || replyPkt.Type != core.PacketHandshake {
+			conn.Close()
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		var theirPub core.PubKey
+		if jerr := json.Unmarshal(replyPkt.Payload, &theirPub); jerr != nil {
+			conn.Close()
+			time.Sleep(5 * time.Second)
+			continue
+		}
 		conn.SetDeadline(time.Time{})
 
-		peer := network.NewPeer(conn, core.PubKey{}, addr, n.removePeer)
+		peer := network.NewPeer(conn, theirPub, addr, n.removePeer)
 		n.addPeer(peer)
 		go peer.StartWritePump()
 		n.readLoop(peer)
@@ -213,8 +232,21 @@ type txVerifyMsg struct {
 }
 
 func (n *Node) handleTxVerify(pkt *network.Packet) {
+	// gossip 중복 방지
+	should, _ := n.gossip.ShouldForward(pkt.MsgID)
+	if !should {
+		return
+	}
 	var msg txVerifyMsg
 	if err := json.Unmarshal(pkt.Payload, &msg); err != nil {
+		return
+	}
+	// 이 노드가 활성 증인인지 확인
+	validSet, err := n.witness.GetActiveSet()
+	if err != nil || len(validSet) == 0 {
+		return
+	}
+	if _, isWitness := validSet[n.kp.Public]; !isWitness {
 		return
 	}
 
@@ -245,10 +277,28 @@ func (n *Node) handleTxVerify(pkt *network.Packet) {
 		Sig    core.WitnessSignature
 	}
 	payload, _ := json.Marshal(witSigMsg{TxHash: msg.Tx.Hash, Sig: sig})
-	n.sendToOriginator(msg.Tx.From, &network.Packet{
+	// originator에게 직접 전송, 연결 없으면 broadcast로 전파
+	witPkt := &network.Packet{
 		Type:    core.PacketTxWitnessSig,
 		Payload: payload,
-	})
+	}
+	// MsgID: txHash XOR witness pubkey (중복 gossip 방지)
+	var sigMsgID core.Hash32
+	for i := 0; i < 32; i++ {
+		sigMsgID[i] = msg.Tx.Hash[i] ^ sig.WitnessPubKey[i]
+	}
+	witPkt.MsgID = sigMsgID
+	// originator에게 직접 전송, 연결 없으면 broadcast
+	n.mu.RLock()
+	_, directConn := n.peers[msg.Tx.From]
+	n.mu.RUnlock()
+	if directConn {
+		n.sendToOriginator(msg.Tx.From, witPkt)
+	} else {
+		n.broadcast(witPkt, nil)
+	}
+	// TxVerify gossip 재전파 — 직접 연결 안 된 증인들도 받을 수 있도록
+	n.broadcast(pkt, nil)
 }
 
 func (n *Node) handleWitnessSig(pkt *network.Packet) {
@@ -265,6 +315,11 @@ func (n *Node) handleWitnessSig(pkt *network.Packet) {
 	meta, ok := n.pendingTx[msg.TxHash]
 	n.mu.RUnlock()
 	if !ok {
+		// 이 노드가 originator가 아닌 경우 — gossip으로 전파해서 originator에게 도달시킴
+		should, _ := n.gossip.ShouldForward(pkt.MsgID)
+		if should {
+			n.broadcast(pkt, nil)
+		}
 		return
 	}
 
@@ -363,26 +418,15 @@ func (n *Node) SendTx(to core.PubKey, amount core.Amount) (*core.Transaction, er
 		ExpiresAt: time.Now().Add(snapshotTTL),
 	}
 
-	witnesses, _ := n.witness.GetActiveWitnesses()
+	// TxVerify broadcast — 직접 연결 여부와 무관하게 모든 증인에게 전파
 	txVerifyPayload, _ := json.Marshal(txVerifyMsg{Tx: tx, Snapshot: snap})
-	sent := 0
-	for _, w := range witnesses {
-		if w.PubKey == n.kp.Public {
-			continue
-		}
-		n.mu.RLock()
-		peer, ok := n.peers[w.PubKey]
-		n.mu.RUnlock()
-		if ok {
-			_ = peer.Send(&network.Packet{
-				Type:    core.PacketTxVerify,
-				MsgID:   tx.Hash,
-				Payload: txVerifyPayload,
-			})
-			sent++
-		}
-	}
-	log.Printf("[cdml] TxVerify sent=%d witnesses=%d tx=%x", sent, len(witnesses), tx.Hash[:4])
+	n.broadcast(&network.Packet{
+		Type:    core.PacketTxVerify,
+		MsgID:   tx.Hash,
+		Payload: txVerifyPayload,
+	}, nil)
+	witnesses, _ := n.witness.GetActiveWitnesses()
+	log.Printf("[cdml] TxVerify broadcast witnesses=%d tx=%x", len(witnesses), tx.Hash[:4])
 
 	return tx, nil
 }
