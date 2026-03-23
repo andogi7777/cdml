@@ -1,0 +1,13 @@
+{
+  "network_id": "cdml-local-1",
+  "witnesses": [
+    {
+      "pubkey": "<node1 pubkey — setup.go 실행 후 자동 생성>",
+      "addr": "127.0.0.1:7331"
+    },
+    {
+      "pubkey": "<node2 pubkey>",
+      "addr": "127.0.0.1:7332"
+    }
+  ]
+}
