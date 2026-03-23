@@ -116,9 +116,8 @@ func (tp *TxProcessor) verifyTxInternal(pkt *VerifyPacket) error {
 	if err := crypto.VerifyTx(tx); err != nil {
 		return err
 	}
-	if tp.nonce.IsLocked(tx.From, tx.Nonce) {
-		return core.ErrTxNonceLocked
-	}
+	// NonceLock은 이중지불 방지 신호 — 잠겨있는 것이 정상
+	// 거부 조건이 아니라 증인이 nonceLockSeen 플래그로 기록함
 
 	chainSeq, err := tp.chain.GetLatestSeq(tx.From)
 	if err != nil {
