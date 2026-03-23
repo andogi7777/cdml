@@ -172,10 +172,27 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RegisterWitnesses(w http.ResponseWriter, r *http.Request) {
-	var witnesses []core.Witness
-	if err := json.NewDecoder(r.Body).Decode(&witnesses); err != nil {
+	// init.go가 hex 문자열로 pubkey를 전송하므로 별도 구조체로 수신 후 변환
+	var raw []struct {
+		PubKey string `json:"PubKey"`
+		Addr   string `json:"Addr"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		httpErr(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
+	}
+	witnesses := make([]core.Witness, 0, len(raw))
+	for _, r := range raw {
+		pk, err := crypto.PubKeyFromHex(r.PubKey)
+		if err != nil {
+			httpErr(w, http.StatusBadRequest, "INVALID_PUBKEY", err.Error())
+			return
+		}
+		witnesses = append(witnesses, core.Witness{
+			PubKey:  pk,
+			Addr:    r.Addr,
+			AddedAt: time.Now(),
+		})
 	}
 	if err := h.n.Witness().SaveActiveWitnesses(witnesses); err != nil {
 		httpErr(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
