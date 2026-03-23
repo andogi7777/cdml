@@ -1,32 +1,20 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+# 빌드 결과물
+testnet/cdml.exe
+testnet/cdml
 
-# Test binary, built with `go test -c`
-*.test
+# 노드 실행 데이터 (키, DB, 로그)
+testnet/node*/node.key
+testnet/node*/db/
+testnet/node*/node.log
 
-# Code coverage profiles and other test artifacts
-*.out
-coverage.*
-*.coverprofile
-profile.cov
+# genesis.json — setup.go 실행 시 자동 생성됨
+testnet/genesis.json
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# IDE
+.idea/
+.vscode/
+*.swp
 
-# Go workspace file
-go.work
-go.work.sum
-
-# env file
-.env
-
-# Editor/IDE
-# .idea/
-# .vscode/
+# OS
+.DS_Store
+Thumbs.db
