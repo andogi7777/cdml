@@ -1,28 +1,23 @@
-[![Go](https://github.com/andogi7777/cdml/actions/workflows/go.yml/badge.svg)](https://github.com/andogi7777/cdml/actions/workflows/go.yml)
-```
-
-# cdml
-DAG-based distributed ledger without full nodes. Cross-validation between nodes replaces global consensus. Research Preview.
-
 # CDML — Cross-Density Mutual Surveillance Ledger
 
 > **"What if a blockchain didn't need full nodes?"**
 
+[![Go](https://github.com/andogi7777/cdml/actions/workflows/go.yml/badge.svg)](https://github.com/andogi7777/cdml/actions/workflows/go.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go](https://img.shields.io/badge/Go-1.23-blue.svg)](https://golang.org)
 [![Status: Research Preview](https://img.shields.io/badge/Status-Research%20Preview-orange.svg)]()
 
 ---
-Full nodes. Archive nodes. Validators holding the entire state. Removing them was considered impossible — without them, transactions can't be verified, double-spends can't be detected, consensus breaks down.
 
-**We removed them. It still works.**
 ## The Universal Assumption of Every Blockchain
 
 Bitcoin, Ethereum, Solana — every blockchain shares one premise:
 
 **Someone, somewhere, must store the entire ledger.**
 
+Full nodes. Archive nodes. Validators holding the entire state. Removing them was considered impossible — without them, transactions can't be verified, double-spends can't be detected, consensus breaks down.
 
+**We removed them. It still works.**
 
 ---
 
