@@ -1,3 +1,6 @@
+[![Go](https://github.com/andogi7777/cdml/actions/workflows/go.yml/badge.svg)](https://github.com/andogi7777/cdml/actions/workflows/go.yml)
+```
+
 # cdml
 DAG-based distributed ledger without full nodes. Cross-validation between nodes replaces global consensus. Research Preview.
 
